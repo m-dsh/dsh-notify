@@ -88,6 +88,30 @@ dsh --profile web
 | `notifierPath` |string|`""`|`terminal-notifier` 绝对路径（留空自动查找（|
 | `iconPath` |string|`""`|通知图标路径（留空使用内置 DSH 鲸鱼图标（|
 | `activate` |string|`""`|点击通知时激活应用的 Bundle ID（留空自动检测终端；`"none"` 禁用（|
+| `events` |object|全开|每类通知的开关，见下表（|
+
+###`events` 通知开关（默认全开（
+
+| 开关 |默认|触发场景 |
+|---|---|---|
+| `turnCompleted` |`true`|回合正常完成（`completed`（|
+| `turnBlocked` |`true`|回合被阻塞（`blocked`（|
+| `turnMaxTokens` |`true`|输出达 token 上限被截断（`max-tokens`（|
+| `turnAborted` |`true`|回合被中止（`aborted`（|
+| `turnErrored` |`true`|回合异常终止（`error`（，附错误信息（|
+| `permissionAsked` |`true`|权限申请（`approval/asked`（，等待确认（|
+| `permissionDenied` |`true`|权限被拒/取消/不可用（`approval/decided` 的 `rejected`/`cancelled`/`unavailable`（|
+
+示例（只保留正常完成与权限申请通知（：
+
+```yaml
+dsh-notify:
+  events:
+    turnBlocked: false
+    turnMaxTokens: false
+    turnAborted: false
+    turnErrored: false
+```
 
 ## 故障排查
 

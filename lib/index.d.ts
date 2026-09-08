@@ -21,6 +21,22 @@ declare module '@deepseek-ai/cordis' {
     }
 }
 export declare const name = "dsh-notify";
+export interface TurnEventsConfig {
+    /** 回合正常完成 */
+    turnCompleted: boolean;
+    /** 回合被阻塞 */
+    turnBlocked: boolean;
+    /** 输出达 token 上限被截断 */
+    turnMaxTokens: boolean;
+    /** 回合被中止 */
+    turnAborted: boolean;
+    /** 回合异常终止 */
+    turnErrored: boolean;
+    /** 权限申请（等待确认） */
+    permissionAsked: boolean;
+    /** 权限被拒 / 取消 / 不可用 */
+    permissionDenied: boolean;
+}
 export interface Config {
     /** 是否启用通知，默认 true */
     enabled: boolean;
@@ -34,6 +50,8 @@ export interface Config {
     iconPath: string;
     /** 点击通知时激活的应用 bundle ID（留空自动检测终端；'none' 禁用） */
     activate: string;
+    /** 每类通知的开关，默认全开 */
+    events: TurnEventsConfig;
 }
 export declare const Config: Schema<Config>;
 export declare function apply(ctx: Context, config: Config): void;

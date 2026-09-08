@@ -27,6 +27,23 @@ declare module '@deepseek-ai/cordis' {
 
 export const name = 'dsh-notify'
 
+export interface TurnEventsConfig {
+  /** 回合正常完成 */
+  turnCompleted: boolean
+  /** 回合被阻塞 */
+  turnBlocked: boolean
+  /** 输出达 token 上限被截断 */
+  turnMaxTokens: boolean
+  /** 回合被中止 */
+  turnAborted: boolean
+  /** 回合异常终止 */
+  turnErrored: boolean
+  /** 权限申请（等待确认） */
+  permissionAsked: boolean
+  /** 权限被拒 / 取消 / 不可用 */
+  permissionDenied: boolean
+}
+
 export interface Config {
   /** 是否启用通知，默认 true */
   enabled: boolean
@@ -40,6 +57,18 @@ export interface Config {
   iconPath: string
   /** 点击通知时激活的应用 bundle ID（留空自动检测终端；'none' 禁用） */
   activate: string
+  /** 每类通知的开关，默认全开 */
+  events: TurnEventsConfig
+}
+
+const ALL_EVENTS_DEFAULT: TurnEventsConfig = {
+  turnCompleted: true,
+  turnBlocked: true,
+  turnMaxTokens: true,
+  turnAborted: true,
+  turnErrored: true,
+  permissionAsked: true,
+  permissionDenied: true,
 }
 
 export const Config: Schema<Config> = Schema.object({
@@ -49,6 +78,15 @@ export const Config: Schema<Config> = Schema.object({
   notifierPath: Schema.string().default(''),
   iconPath: Schema.string().default(''),
   activate: Schema.string().default(''),
+  events: Schema.object({
+    turnCompleted: Schema.boolean().default(true),
+    turnBlocked: Schema.boolean().default(true),
+    turnMaxTokens: Schema.boolean().default(true),
+    turnAborted: Schema.boolean().default(true),
+    turnErrored: Schema.boolean().default(true),
+    permissionAsked: Schema.boolean().default(true),
+    permissionDenied: Schema.boolean().default(true),
+  }).default(ALL_EVENTS_DEFAULT),
 })
 
 // ── 图标解析 ──────────────────────────────────────────────────────────
@@ -153,38 +191,96 @@ function compactText(value: unknown, limit = 180): string {
   return text.slice(0, limit - 1).trimEnd() + '…'
 }
 
-function buildNotification(
-  eventType: string,
-  eventData: Record<string, unknown>,
+function projectHashOf(cwd: string): string {
+  return createHash('sha256')
+    .update(cwd)
+    .digest('hex')
+    .slice(0, 16)
+}
+
+/** turn/end 事件的 reason 结构 */
+interface TurnEndReason {
+  kind?: string
+  reason?: unknown
+  error?: { message?: unknown }
+}
+
+function turnReasonOf(data: Record<string, unknown>): TurnEndReason | undefined {
+  return (data.reason as TurnEndReason | undefined) ?? undefined
+}
+
+function abortMessage(data: Record<string, unknown>): string {
+  const reason = turnReasonOf(data)?.reason
+  if (typeof reason === 'string' && reason.trim()) return compactText(reason, 120)
+  if (reason && typeof (reason as { message?: unknown })?.message === 'string' && (reason as { message: string }).message.trim()) {
+    return compactText((reason as { message: string }).message, 120)
+  }
+  return '回合已被中止'
+}
+
+function errorMessage(data: Record<string, unknown>): string {
+  const failure = turnReasonOf(data)?.error
+  const message = failure && typeof failure.message === 'string' && failure.message.trim() ? failure.message : ''
+  if (message) return compactText(`发生异常：${message}`, 160)
+  return '发生异常，回合终止'
+}
+
+function buildTurnNotification(
+  kind: string,
+  data: Record<string, unknown>,
   cwd: string,
   config: Config,
 ): NotificationContent {
   const project = projectName(cwd)
-  const projectHash = createHash('sha256')
-    .update(cwd)
-    .digest('hex')
-    .slice(0, 16)
-
-  if (eventType === 'approval/asked') {
-    const toolName = compactText(eventData.toolName, 60) || '未知工具'
-    return {
-      title: 'DSH · 需要授权',
-      subtitle: project,
-      message: `${toolName} 正在等待你的确认`,
-      sound: config.soundPermission,
-      group: `dsh-notify:${projectHash}:permission`,
-      permissionGroup: `dsh-notify:${projectHash}:permission`,
-    }
+  const projectHash = projectHashOf(cwd)
+  const group = `dsh-notify:${projectHash}:complete`
+  const base = { subtitle: project, group, permissionGroup: `dsh-notify:${projectHash}:permission` }
+  switch (kind) {
+    case 'blocked':
+      return { ...base, title: 'DSH·回合被阻塞', message: '回合被阻塞，等待继续', sound: config.soundComplete }
+    case 'max-tokens':
+      return { ...base, title: 'DSH·回复被截断', message: '输出达到 token 上限，回复被截断', sound: config.soundComplete }
+    case 'aborted':
+      return { ...base, title: 'DSH·回复已中止', message: abortMessage(data), sound: config.soundComplete }
+    case 'error':
+      return { ...base, title: 'DSH·回复异常终止', message: errorMessage(data), sound: config.soundComplete }
+    default:
+      return { ...base, title: 'DSH·回复完成', message: '当前回合已结束', sound: config.soundComplete }
   }
+}
 
-  // turn/end — 回合完成
-  return {
-    title: 'DSH · 回复完成',
-    subtitle: project,
-    message: '当前回合已结束',
-    sound: config.soundComplete,
-    group: `dsh-notify:${projectHash}:complete`,
-    permissionGroup: `dsh-notify:${projectHash}:permission`,
+function buildPermissionNotification(
+  kind: 'asked' | 'rejected' | 'cancelled' | 'unavailable',
+  data: Record<string, unknown>,
+  cwd: string,
+  config: Config,
+): NotificationContent {
+  const project = projectName(cwd)
+  const projectHash = projectHashOf(cwd)
+  const group = `dsh-notify:${projectHash}:permission`
+  const base = { title: 'DSH·需要授权', sound: config.soundPermission, group, permissionGroup: group }
+  switch (kind) {
+    case 'asked': {
+      const toolName = compactText(data.toolName, 60) || '未知工具'
+      return { ...base, subtitle: project, message: `${toolName} 正在等待你的确认` }
+    }
+    case 'rejected':
+      return { ...base, title: 'DSH·权限被拒绝', subtitle: project, message: '权限请求已被拒绝' }
+    case 'cancelled':
+      return { ...base, title: 'DSH·授权已取消', subtitle: project, message: '授权请求已取消' }
+    case 'unavailable':
+      return { ...base, title: 'DSH·权限不可用', subtitle: project, message: '当前权限策略无法批准该请求（如策略 never（' }
+  }
+}
+
+function shouldNotifyTurn(kind: string, events: TurnEventsConfig): boolean {
+  switch (kind) {
+    case 'completed': return events.turnCompleted
+    case 'blocked': return events.turnBlocked
+    case 'max-tokens': return events.turnMaxTokens
+    case 'aborted': return events.turnAborted
+    case 'error': return events.turnErrored
+    default: return events.turnErrored
   }
 }
 
@@ -274,26 +370,44 @@ export function apply(ctx: Context, config: Config): void {
   const notifier = findTerminalNotifier(config.notifierPath)
   const icon = resolveIconPath(config.iconPath)
   const activate = resolveActivate(config.activate)
+  const events = config.events ?? ALL_EVENTS_DEFAULT
 
   // 监听所有 session 事件
   ctx.on('session/event', (session, event) => {
     const eventType = event.type
+    const data = (event.data ?? {}) as Record<string, unknown>
     if (!eventType) return
-
-    // 回合完成：turn/end
-    // 权限申请：approval/asked
-    if (eventType !== 'turn/end' && eventType !== 'approval/asked') return
 
     const cwd: string = session.header?.cwd ?? process.cwd()
 
     try {
-      const content = buildNotification(
-        eventType,
-        event.data ?? {},
-        cwd,
-        config,
-      )
-      sendNotification(notifier, content, eventType === 'approval/asked', icon, activate)
+      if (eventType === 'turn/end') {
+        const kind = turnReasonOf(data)?.kind ?? 'completed'
+        if (!shouldNotifyTurn(kind, events)) return
+        const content = buildTurnNotification(kind, data, cwd, config)
+
+        sendNotification(notifier, content, false, icon, activate)
+        return
+      }
+
+      if (eventType === 'approval/asked') {
+        if (!events.permissionAsked) return
+        const content = buildPermissionNotification('asked', data, cwd, config)
+        sendNotification(notifier, content, true, icon, activate)
+        return
+      }
+
+      if (eventType === 'approval/decided') {
+        const outcome = typeof data.outcome === 'string' ? data.outcome : ''
+        const kind: 'rejected' | 'cancelled' | 'unavailable' | null =
+          outcome === 'rejected' ? 'rejected' :
+          outcome === 'cancelled' ? 'cancelled' :
+          outcome === 'unavailable' ? 'unavailable' : null
+        if (!kind || !events.permissionDenied) return
+        const content = buildPermissionNotification(kind, data, cwd, config)
+        sendNotification(notifier, content, true, icon, activate)
+        return
+      }
     } catch (err) {
       // 静默失败，不影响 DSH 正常运行
       console.error('[dsh-notify] 发送通知失败:', err)
