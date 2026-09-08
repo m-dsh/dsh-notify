@@ -6,6 +6,7 @@ export default defineConfig([
     format: ['esm'],
     outDir: 'lib',
     clean: true,
+    external: ['@deepseek-ai/cordis', '@deepseek-ai/dsh-settings'],
   },
   {
     entry: ['src/client/index.ts'],

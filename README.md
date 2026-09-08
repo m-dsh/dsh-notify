@@ -101,6 +101,7 @@ dsh --profile web
 | `turnErrored` |`true`|回合异常终止（`error`（，附错误信息（|
 | `permissionAsked` |`true`|权限申请（`approval/asked`（，等待确认（|
 | `permissionDenied` |`true`|权限被拒/取消/不可用（`approval/decided` 的 `rejected`/`cancelled`/`unavailable`（|
+| `questionAsked` |`true`|模型提问（`tool/call` `ask_user_question`（，进程被阻塞等待回答（|
 
 示例（只保留正常完成与权限申请通知（：
 
@@ -112,6 +113,12 @@ dsh-notify:
     turnAborted: false
     turnErrored: false
 ```
+
+### 可视化设置面板
+
+在 DSH Web 的「设置」对话框中也有「通知设置」页面，提供 7 个开关——改动即时生效，无需重启或编辑 YAML。
+
+![设置面板](docs/settings-zh.png)
 
 ## 故障排查
 

@@ -11,6 +11,7 @@ const EVENT_FIELDS = [
   { key: 'turnErrored', label: '回合异常终止通知' },
   { key: 'permissionAsked', label: '权限申请通知' },
   { key: 'permissionDenied', label: '权限被拒 / 取消通知' },
+  { key: 'questionAsked', label: '模型提问通知 (ask_user_question)' },
 ] as const
 
 type EventsConfig = Record<string, boolean>

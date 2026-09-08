@@ -33,6 +33,8 @@ interface TurnEventsConfig {
   permissionAsked: boolean;
   /** 权限被拒 / 取消 / 不可用 */
   permissionDenied: boolean;
+  /** 模型提问（ask_user_question） */
+  questionAsked: boolean;
 }
 interface Config {
   /** 是否启用通知，默认 true */

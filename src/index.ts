@@ -44,6 +44,8 @@ export interface TurnEventsConfig {
   permissionAsked: boolean
   /** 权限被拒 / 取消 / 不可用 */
   permissionDenied: boolean
+  /** 模型提问（ask_user_question） */
+  questionAsked: boolean
 }
 
 export interface Config {
@@ -71,6 +73,7 @@ const ALL_EVENTS_DEFAULT: TurnEventsConfig = {
   turnErrored: true,
   permissionAsked: true,
   permissionDenied: true,
+  questionAsked: true,
 }
 
 /** 通知事件字段的 Settings 命名空间 */
@@ -85,6 +88,7 @@ const EVENTS_SETTINGS_SCHEMA = Schema.object({
   turnErrored: Schema.boolean().default(true),
   permissionAsked: Schema.boolean().default(true),
   permissionDenied: Schema.boolean().default(true),
+  questionAsked: Schema.boolean().default(true),
 })
 
 export const Config: Schema<Config> = Schema.object({
@@ -102,6 +106,7 @@ export const Config: Schema<Config> = Schema.object({
     turnErrored: Schema.boolean().default(true),
     permissionAsked: Schema.boolean().default(true),
     permissionDenied: Schema.boolean().default(true),
+    questionAsked: Schema.boolean().default(true),
   }).default(ALL_EVENTS_DEFAULT),
 })
 
@@ -401,6 +406,12 @@ export function apply(ctx: Context, config: Config): void {
     }
   }
 
+  // 用 watch 保持 liveEvents 始终为最新值
+  let liveEvents = eventsScope.get()
+  eventsScope.watch((next) => {
+    liveEvents = next
+  })
+
   if (!config.enabled) return
 
   const notifier = findTerminalNotifier(config.notifierPath)
@@ -413,10 +424,24 @@ export function apply(ctx: Context, config: Config): void {
     const data = (event.data ?? {}) as Record<string, unknown>
     if (!eventType) return
 
-    const events = eventsScope.get()
     const cwd: string = session.header?.cwd ?? process.cwd()
 
     try {
+      const events = liveEvents
+      if (eventType === 'tool/call' && typeof data.name === 'string' && data.name === 'ask_user_question') {
+        if (!events.questionAsked) return
+        const project = projectName(cwd)
+        const projectHash = projectHashOf(cwd)
+        sendNotification(notifier, {
+          title: 'DSH·请回答问题',
+          subtitle: project,
+          message: '模型正在向你提问，请返回 DSH 查看',
+          sound: config.soundPermission,
+          group: `dsh-notify:${projectHash}:question`,
+          permissionGroup: `dsh-notify:${projectHash}:permission`,
+        }, true, icon, activate)
+        return
+      }
       if (eventType === 'turn/end') {
         const kind = turnReasonOf(data)?.kind ?? 'completed'
         if (!shouldNotifyTurn(kind, events)) return
