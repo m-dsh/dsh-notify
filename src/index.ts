@@ -14,6 +14,7 @@ import { basename, dirname, join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { settingsNamespace, installSettingsSection } from '@deepseek-ai/dsh-settings'
 
 // 声明 DSH 内置事件类型，避免 TS 报错
 declare module '@deepseek-ai/cordis' {
@@ -26,6 +27,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 export const name = 'dsh-notify'
+export const inject = ['settings']
 
 export interface TurnEventsConfig {
   /** 回合正常完成 */
@@ -70,6 +72,20 @@ const ALL_EVENTS_DEFAULT: TurnEventsConfig = {
   permissionAsked: true,
   permissionDenied: true,
 }
+
+/** 通知事件字段的 Settings 命名空间 */
+export const NOTIFY_SETTINGS_NS = settingsNamespace('dsh-notify')
+
+/** Settings 注册用的 events schema（独立于 Config，供 settings scope 读写） */
+const EVENTS_SETTINGS_SCHEMA = Schema.object({
+  turnCompleted: Schema.boolean().default(true),
+  turnBlocked: Schema.boolean().default(true),
+  turnMaxTokens: Schema.boolean().default(true),
+  turnAborted: Schema.boolean().default(true),
+  turnErrored: Schema.boolean().default(true),
+  permissionAsked: Schema.boolean().default(true),
+  permissionDenied: Schema.boolean().default(true),
+})
 
 export const Config: Schema<Config> = Schema.object({
   enabled: Schema.boolean().default(true),
@@ -365,12 +381,31 @@ export function apply(ctx: Context, config: Config): void {
     return
   }
 
+  // 注册 settings 命名空间（供 Client 设置面板读写 events 开关）
+  const eventsScope = ctx.settings.register<TurnEventsConfig>(
+    NOTIFY_SETTINGS_NS,
+    EVENTS_SETTINGS_SCHEMA,
+    { base: ALL_EVENTS_DEFAULT, applies: 'live' },
+  )
+
+  // 将 YAML 配置中的 events 覆盖写入 settings user 层
+  if (config.events) {
+    const overrides: Record<string, boolean> = {}
+    for (const key of Object.keys(ALL_EVENTS_DEFAULT) as (keyof TurnEventsConfig)[]) {
+      if (config.events[key] !== undefined && config.events[key] !== ALL_EVENTS_DEFAULT[key]) {
+        overrides[key] = config.events[key]
+      }
+    }
+    if (Object.keys(overrides).length > 0) {
+      eventsScope.update(overrides as Partial<TurnEventsConfig>)
+    }
+  }
+
   if (!config.enabled) return
 
   const notifier = findTerminalNotifier(config.notifierPath)
   const icon = resolveIconPath(config.iconPath)
   const activate = resolveActivate(config.activate)
-  const events = config.events ?? ALL_EVENTS_DEFAULT
 
   // 监听所有 session 事件
   ctx.on('session/event', (session, event) => {
@@ -378,6 +413,7 @@ export function apply(ctx: Context, config: Config): void {
     const data = (event.data ?? {}) as Record<string, unknown>
     if (!eventType) return
 
+    const events = eventsScope.get()
     const cwd: string = session.header?.cwd ?? process.cwd()
 
     try {
