@@ -16,6 +16,28 @@ const EVENT_FIELDS = [
 
 type EventsConfig = Record<string, boolean>
 
+// ── 设置卡片样式（对齐 dsh-web-search 设置卡片）─────────────────────────
+
+const cardStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 2,
+  border: '1px solid var(--dsw-alias-border-l2)',
+  borderRadius: 12,
+  background: 'var(--dsw-alias-bg-layer-3)',
+  overflow: 'hidden',
+  padding: '4px 0',
+}
+
+const sectionTitleStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 600,
+  color: 'var(--dsw-alias-label-secondary)',
+  padding: '8px 16px 4px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+} as React.CSSProperties
+
 // ── 插件导出 ────────────────────────────────────────────────────────────
 
 export const name = 'dsh-notify-client'
@@ -68,7 +90,8 @@ const NotifySettingsSection: React.FC<Record<string, unknown>> = function Notify
 
   return React.createElement(
     'div',
-    { style: { display: 'flex', flexDirection: 'column', gap: 2, padding: '8px 0' } },
+    { style: cardStyle },
+    React.createElement('div', { style: sectionTitleStyle }, '通知事件'),
     ...EVENT_FIELDS.map(({ key, label }) => {
       const checked = values[key] === true
       return React.createElement(
