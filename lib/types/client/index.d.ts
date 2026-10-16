@@ -1,7 +1,7 @@
 import React from 'react';
 import type { SettingsScope } from '@deepseek-ai/dsh-client-runtime/client';
 export declare const name = "dsh-notify-client";
-export declare const inject: readonly ["slots", "settingsScope"];
+export declare const inject: readonly ["slots", "webUiSettings"];
 export declare function apply(ctx: ClientContext): void;
 interface ClientContext {
     slots: {
@@ -14,7 +14,7 @@ interface ClientContext {
             inject?: () => Record<string, unknown>;
         }, comp: React.FC<Record<string, unknown>>): () => void;
     };
-    settingsScope: {
+    webUiSettings: {
         bind<T>(spec: {
             namespace: string;
         }): SettingsScope<T>;

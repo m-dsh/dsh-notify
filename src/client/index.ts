@@ -41,10 +41,10 @@ const sectionTitleStyle: React.CSSProperties = {
 // ── 插件导出 ────────────────────────────────────────────────────────────
 
 export const name = 'dsh-notify-client'
-export const inject = ['slots', 'settingsScope'] as const
+export const inject = ['slots', 'webUiSettings'] as const
 
 export function apply(ctx: ClientContext): void {
-  const scope = ctx.settingsScope.bind<EventsConfig>({ namespace: 'dsh-notify' })
+  const scope = ctx.webUiSettings.bind<EventsConfig>({ namespace: 'dsh-notify' })
 
   ctx.slots.inject('settings.section', () => {
     return ctx.slots.register(
@@ -202,7 +202,7 @@ interface ClientContext {
       comp: React.FC<Record<string, unknown>>,
     ): () => void
   }
-  settingsScope: {
+  webUiSettings: {
     bind<T>(spec: { namespace: string }): SettingsScope<T>
   }
 }
