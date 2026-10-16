@@ -1,5 +1,4 @@
 import Schema from "@deepseek-ai/schemastery";
-import * as _deepseek_ai_dsh_settings0 from "@deepseek-ai/dsh-settings";
 import { Context } from "@deepseek-ai/cordis";
 
 //#region src/index.d.ts
@@ -17,7 +16,6 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 declare const name = "dsh-notify";
-declare const inject: string[];
 interface TurnEventsConfig {
   /** 回合正常完成 */
   turnCompleted: boolean;
@@ -52,9 +50,7 @@ interface Config {
   /** 每类通知的开关，默认全开 */
   events: TurnEventsConfig;
 }
-/** 通知事件字段的 Settings 命名空间 */
-declare const NOTIFY_SETTINGS_NS: _deepseek_ai_dsh_settings0.SettingsNamespace;
 declare const Config: Schema<Config>;
 declare function apply(ctx: Context, config: Config): void;
 //#endregion
-export { Config, NOTIFY_SETTINGS_NS, TurnEventsConfig, apply, inject, name };
+export { Config, TurnEventsConfig, apply, name };

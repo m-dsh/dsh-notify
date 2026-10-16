@@ -21,7 +21,6 @@ declare module '@deepseek-ai/cordis' {
     }
 }
 export declare const name = "dsh-notify";
-export declare const inject: string[];
 export interface TurnEventsConfig {
     /** 回合正常完成 */
     turnCompleted: boolean;
@@ -56,8 +55,6 @@ export interface Config {
     /** 每类通知的开关，默认全开 */
     events: TurnEventsConfig;
 }
-/** 通知事件字段的 Settings 命名空间 */
-export declare const NOTIFY_SETTINGS_NS: import("@deepseek-ai/dsh-settings").SettingsNamespace;
 export declare const Config: Schema<Config>;
 export declare function apply(ctx: Context, config: Config): void;
 //# sourceMappingURL=index.d.ts.map
