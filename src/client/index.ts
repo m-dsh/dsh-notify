@@ -1,5 +1,5 @@
 import React from 'react'
-import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ConfigForm, ConfigFormSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
 
 // ── 事件字段定义 ────────────────────────────────────────────────────────
 
@@ -15,6 +15,10 @@ const EVENT_FIELDS = [
 ] as const
 
 type EventsConfig = Record<string, boolean>
+
+interface NotifyConfig {
+  events: EventsConfig
+}
 
 // ── 设置卡片样式（对齐 dsh-web-search 设置卡片）─────────────────────────
 
@@ -41,10 +45,10 @@ const sectionTitleStyle: React.CSSProperties = {
 // ── 插件导出 ────────────────────────────────────────────────────────────
 
 export const name = 'dsh-notify-client'
-export const inject = ['slots', 'webUiSettings'] as const
+export const inject = ['slots', 'configForms'] as const
 
 export function apply(ctx: ClientContext): void {
-  const scope = ctx.webUiSettings.bind<EventsConfig>({ namespace: 'dsh-notify' })
+  const scope = ctx.configForms.get<NotifyConfig>('dsh-notify')
 
   ctx.slots.inject('settings.section', () => {
     return ctx.slots.register(
@@ -63,13 +67,13 @@ export function apply(ctx: ClientContext): void {
 // ── 设置面板组件 ────────────────────────────────────────────────────────
 
 interface NotifyProps {
-  scope: SettingsScope<EventsConfig>
+  scope: ConfigForm<NotifyConfig>
   close: () => void
 }
 
 const NotifySettingsSection: React.FC<Record<string, unknown>> = function NotifySettingsSection(props) {
   const scope = (props as unknown as NotifyProps).scope
-  const [snap, setSnap] = React.useState<SettingsScopeSnapshot<EventsConfig>>(
+  const [snap, setSnap] = React.useState<ConfigFormSnapshot<NotifyConfig>>(
     () => scope.getSnapshot(),
   )
 
@@ -77,7 +81,7 @@ const NotifySettingsSection: React.FC<Record<string, unknown>> = function Notify
     return scope.subscribe(() => setSnap(scope.getSnapshot()))
   }, [scope])
 
-  const values = (snap.value ?? {}) as EventsConfig
+  const values = snap.value?.events ?? {}
   const writable = snap.writable && snap.status === 'ready'
 
   if (snap.status === 'loading') {
@@ -127,7 +131,7 @@ const NotifySettingsSection: React.FC<Record<string, unknown>> = function Notify
         React.createElement(ToggleSwitch, {
           checked,
           disabled: !writable,
-          onChange: () => scope.set(key, !checked),
+          onChange: () => scope.set('events', { ...values, [key]: !checked }),
         }),
       )
     }),
@@ -202,7 +206,7 @@ interface ClientContext {
       comp: React.FC<Record<string, unknown>>,
     ): () => void
   }
-  webUiSettings: {
-    bind<T>(spec: { namespace: string }): SettingsScope<T>
+  configForms: {
+    get<T>(entryId: string): ConfigForm<T>
   }
 }

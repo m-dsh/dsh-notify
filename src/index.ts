@@ -7,7 +7,7 @@
  * 仅支持 macOS。
  */
 
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import { spawnSync } from 'node:child_process'
 import { basename, dirname, join } from 'node:path'
@@ -59,7 +59,7 @@ export interface Config {
   /** 点击通知时激活的应用 bundle ID（留空自动检测终端；'none' 禁用） */
   activate: string
   /** 每类通知的开关，默认全开 */
-  events: TurnEventsConfig
+  events: Volatile<TurnEventsConfig>
 }
 
 const ALL_EVENTS_DEFAULT: TurnEventsConfig = {
@@ -73,7 +73,7 @@ const ALL_EVENTS_DEFAULT: TurnEventsConfig = {
   questionAsked: true,
 }
 
-export const Config: Schema<Config> = Schema.object({
+export const Config = Schema.object({
   enabled: Schema.boolean().default(true),
   soundComplete: Schema.string().default('Glass'),
   soundPermission: Schema.string().default('Submarine'),
@@ -89,7 +89,7 @@ export const Config: Schema<Config> = Schema.object({
     permissionAsked: Schema.boolean().default(true),
     permissionDenied: Schema.boolean().default(true),
     questionAsked: Schema.boolean().default(true),
-  }).default(ALL_EVENTS_DEFAULT),
+  }).default(ALL_EVENTS_DEFAULT).volatile(),
 })
 
 // ── 图标解析 ──────────────────────────────────────────────────────────
@@ -369,10 +369,8 @@ export function apply(ctx: Context, config: Config): void {
   }
 
   // 0.2.0-rc.2 起 settings 表单由 SettingsForms 从本包导出的 Config 自动收集，
-  // events 开关直接来自 config.events；客户端经 webUiSettings.bind({ namespace: 'dsh-notify' })
-  // 修改后插件重载，apply 拿到的即是最新值。
-  const liveEvents = config.events
-
+  // 客户端经 configForms.get('dsh-notify') 修改 events，事件处理时通过 get() 读取最新值，
+  // 无需重载插件。
   if (!config.enabled) return
 
   const notifier = findTerminalNotifier(config.notifierPath)
@@ -388,7 +386,7 @@ export function apply(ctx: Context, config: Config): void {
     const cwd: string = session.header?.cwd ?? process.cwd()
 
     try {
-      const events = liveEvents
+      const events = config.events.get()
       if (eventType === 'tool/call' && typeof data.name === 'string' && data.name === 'ask_user_question') {
         if (!events.questionAsked) return
         const project = projectName(cwd)
