@@ -1,6 +1,5 @@
 import Schema from "@deepseek-ai/schemastery";
-import * as _deepseek_ai_dsh_settings0 from "@deepseek-ai/dsh-settings";
-import { Context } from "@deepseek-ai/cordis";
+import { Context, Volatile } from "@deepseek-ai/cordis";
 
 //#region src/index.d.ts
 
@@ -17,7 +16,6 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 declare const name = "dsh-notify";
-declare const inject: string[];
 interface TurnEventsConfig {
   /** 回合正常完成 */
   turnCompleted: boolean;
@@ -50,11 +48,61 @@ interface Config {
   /** 点击通知时激活的应用 bundle ID（留空自动检测终端；'none' 禁用） */
   activate: string;
   /** 每类通知的开关，默认全开 */
-  events: TurnEventsConfig;
+  events: Volatile<TurnEventsConfig>;
 }
-/** 通知事件字段的 Settings 命名空间 */
-declare const NOTIFY_SETTINGS_NS: _deepseek_ai_dsh_settings0.SettingsNamespace;
-declare const Config: Schema<Config>;
+declare const Config: Schema<Schemastery.ObjectS<NoInfer<{
+  enabled: Schema<boolean, boolean, "defined">;
+  soundComplete: Schema<string, string, "defined">;
+  soundPermission: Schema<string, string, "defined">;
+  notifierPath: Schema<string, string, "defined">;
+  iconPath: Schema<string, string, "defined">;
+  activate: Schema<string, string, "defined">;
+  events: Schema<NoInfer<Schemastery.ObjectS<NoInfer<{
+    turnCompleted: Schema<boolean, boolean, "defined">;
+    turnBlocked: Schema<boolean, boolean, "defined">;
+    turnMaxTokens: Schema<boolean, boolean, "defined">;
+    turnAborted: Schema<boolean, boolean, "defined">;
+    turnErrored: Schema<boolean, boolean, "defined">;
+    permissionAsked: Schema<boolean, boolean, "defined">;
+    permissionDenied: Schema<boolean, boolean, "defined">;
+    questionAsked: Schema<boolean, boolean, "defined">;
+  }>>>, NoInfer<Schemastery.ObjectT<NoInfer<{
+    turnCompleted: Schema<boolean, boolean, "defined">;
+    turnBlocked: Schema<boolean, boolean, "defined">;
+    turnMaxTokens: Schema<boolean, boolean, "defined">;
+    turnAborted: Schema<boolean, boolean, "defined">;
+    turnErrored: Schema<boolean, boolean, "defined">;
+    permissionAsked: Schema<boolean, boolean, "defined">;
+    permissionDenied: Schema<boolean, boolean, "defined">;
+    questionAsked: Schema<boolean, boolean, "defined">;
+  }>>>, "volatile-defined">;
+}>>, Schemastery.ObjectT<NoInfer<{
+  enabled: Schema<boolean, boolean, "defined">;
+  soundComplete: Schema<string, string, "defined">;
+  soundPermission: Schema<string, string, "defined">;
+  notifierPath: Schema<string, string, "defined">;
+  iconPath: Schema<string, string, "defined">;
+  activate: Schema<string, string, "defined">;
+  events: Schema<NoInfer<Schemastery.ObjectS<NoInfer<{
+    turnCompleted: Schema<boolean, boolean, "defined">;
+    turnBlocked: Schema<boolean, boolean, "defined">;
+    turnMaxTokens: Schema<boolean, boolean, "defined">;
+    turnAborted: Schema<boolean, boolean, "defined">;
+    turnErrored: Schema<boolean, boolean, "defined">;
+    permissionAsked: Schema<boolean, boolean, "defined">;
+    permissionDenied: Schema<boolean, boolean, "defined">;
+    questionAsked: Schema<boolean, boolean, "defined">;
+  }>>>, NoInfer<Schemastery.ObjectT<NoInfer<{
+    turnCompleted: Schema<boolean, boolean, "defined">;
+    turnBlocked: Schema<boolean, boolean, "defined">;
+    turnMaxTokens: Schema<boolean, boolean, "defined">;
+    turnAborted: Schema<boolean, boolean, "defined">;
+    turnErrored: Schema<boolean, boolean, "defined">;
+    permissionAsked: Schema<boolean, boolean, "defined">;
+    permissionDenied: Schema<boolean, boolean, "defined">;
+    questionAsked: Schema<boolean, boolean, "defined">;
+  }>>>, "volatile-defined">;
+}>>, "plain">;
 declare function apply(ctx: Context, config: Config): void;
 //#endregion
-export { Config, NOTIFY_SETTINGS_NS, TurnEventsConfig, apply, inject, name };
+export { Config, TurnEventsConfig, apply, name };

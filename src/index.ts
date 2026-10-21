@@ -7,15 +7,13 @@
  * 仅支持 macOS。
  */
 
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Volatile } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import { spawnSync } from 'node:child_process'
 import { basename, dirname, join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { settingsNamespace, installSettingsSection } from '@deepseek-ai/dsh-settings'
-
 // 声明 DSH 内置事件类型，避免 TS 报错
 declare module '@deepseek-ai/cordis' {
   interface Events {
@@ -27,7 +25,6 @@ declare module '@deepseek-ai/cordis' {
 }
 
 export const name = 'dsh-notify'
-export const inject = ['settings']
 
 export interface TurnEventsConfig {
   /** 回合正常完成 */
@@ -62,7 +59,7 @@ export interface Config {
   /** 点击通知时激活的应用 bundle ID（留空自动检测终端；'none' 禁用） */
   activate: string
   /** 每类通知的开关，默认全开 */
-  events: TurnEventsConfig
+  events: Volatile<TurnEventsConfig>
 }
 
 const ALL_EVENTS_DEFAULT: TurnEventsConfig = {
@@ -76,22 +73,7 @@ const ALL_EVENTS_DEFAULT: TurnEventsConfig = {
   questionAsked: true,
 }
 
-/** 通知事件字段的 Settings 命名空间 */
-export const NOTIFY_SETTINGS_NS = settingsNamespace('dsh-notify')
-
-/** Settings 注册用的 events schema（独立于 Config，供 settings scope 读写） */
-const EVENTS_SETTINGS_SCHEMA = Schema.object({
-  turnCompleted: Schema.boolean().default(true),
-  turnBlocked: Schema.boolean().default(true),
-  turnMaxTokens: Schema.boolean().default(true),
-  turnAborted: Schema.boolean().default(true),
-  turnErrored: Schema.boolean().default(true),
-  permissionAsked: Schema.boolean().default(true),
-  permissionDenied: Schema.boolean().default(true),
-  questionAsked: Schema.boolean().default(true),
-})
-
-export const Config: Schema<Config> = Schema.object({
+export const Config = Schema.object({
   enabled: Schema.boolean().default(true),
   soundComplete: Schema.string().default('Glass'),
   soundPermission: Schema.string().default('Submarine'),
@@ -107,7 +89,7 @@ export const Config: Schema<Config> = Schema.object({
     permissionAsked: Schema.boolean().default(true),
     permissionDenied: Schema.boolean().default(true),
     questionAsked: Schema.boolean().default(true),
-  }).default(ALL_EVENTS_DEFAULT),
+  }).default(ALL_EVENTS_DEFAULT).volatile(),
 })
 
 // ── 图标解析 ──────────────────────────────────────────────────────────
@@ -386,32 +368,9 @@ export function apply(ctx: Context, config: Config): void {
     return
   }
 
-  // 注册 settings 命名空间（供 Client 设置面板读写 events 开关）
-  const eventsScope = ctx.settings.register<TurnEventsConfig>(
-    NOTIFY_SETTINGS_NS,
-    EVENTS_SETTINGS_SCHEMA,
-    { base: ALL_EVENTS_DEFAULT, applies: 'live' },
-  )
-
-  // 将 YAML 配置中的 events 覆盖写入 settings user 层
-  if (config.events) {
-    const overrides: Record<string, boolean> = {}
-    for (const key of Object.keys(ALL_EVENTS_DEFAULT) as (keyof TurnEventsConfig)[]) {
-      if (config.events[key] !== undefined && config.events[key] !== ALL_EVENTS_DEFAULT[key]) {
-        overrides[key] = config.events[key]
-      }
-    }
-    if (Object.keys(overrides).length > 0) {
-      eventsScope.update(overrides as Partial<TurnEventsConfig>)
-    }
-  }
-
-  // 用 watch 保持 liveEvents 始终为最新值
-  let liveEvents = eventsScope.get()
-  eventsScope.watch((next) => {
-    liveEvents = next
-  })
-
+  // 0.2.0-rc.2 起 settings 表单由 SettingsForms 从本包导出的 Config 自动收集，
+  // 客户端经 configForms.get('dsh-notify') 修改 events，事件处理时通过 get() 读取最新值，
+  // 无需重载插件。
   if (!config.enabled) return
 
   const notifier = findTerminalNotifier(config.notifierPath)
@@ -427,7 +386,7 @@ export function apply(ctx: Context, config: Config): void {
     const cwd: string = session.header?.cwd ?? process.cwd()
 
     try {
-      const events = liveEvents
+      const events = config.events.get()
       if (eventType === 'tool/call' && typeof data.name === 'string' && data.name === 'ask_user_question') {
         if (!events.questionAsked) return
         const project = projectName(cwd)

@@ -1,5 +1,5 @@
 import React from 'react'
-import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ConfigForm, ConfigFormSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
 
 // ── 事件字段定义 ────────────────────────────────────────────────────────
 
@@ -15,6 +15,10 @@ const EVENT_FIELDS = [
 ] as const
 
 type EventsConfig = Record<string, boolean>
+
+interface NotifyConfig {
+  events: EventsConfig
+}
 
 // ── 设置卡片样式（对齐 dsh-web-search 设置卡片）─────────────────────────
 
@@ -38,13 +42,23 @@ const sectionTitleStyle: React.CSSProperties = {
   letterSpacing: '0.5px',
 } as React.CSSProperties
 
+const switchCss = [
+  '.dsh_notify_card .dsh_notify_toggle{box-sizing:border-box;appearance:none;position:relative;flex:0 0 auto;width:36px;height:20px;padding:2px;margin:0;border:0;border-radius:999px;corner-shape:round;background:var(--dsw-alias-border-l3);cursor:pointer}',
+  '.dsh_notify_card .dsh_notify_toggle[aria-checked=true]{background:var(--dsw-alias-brand-primary)}',
+  '.dsh_notify_card .dsh_notify_toggle:disabled{cursor:default;opacity:.5}',
+  '.dsh_notify_card .dsh_notify_toggle:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}',
+  '.dsh_notify_card .dsh_notify_thumb{display:block;width:16px;height:16px;border-radius:50%;corner-shape:round;background:var(--dsw-alias-label-primary-foreground);transition:transform 120ms ease}',
+  '.dsh_notify_card .dsh_notify_toggle[aria-checked=false] .dsh_notify_thumb{background:var(--dsw-alias-switch-thumb)}',
+  '.dsh_notify_card .dsh_notify_toggle[aria-checked=true] .dsh_notify_thumb{transform:translateX(16px)}',
+].join('')
+
 // ── 插件导出 ────────────────────────────────────────────────────────────
 
 export const name = 'dsh-notify-client'
-export const inject = ['slots', 'settingsScope'] as const
+export const inject = ['slots', 'configForms'] as const
 
 export function apply(ctx: ClientContext): void {
-  const scope = ctx.settingsScope.bind<EventsConfig>({ namespace: 'dsh-notify' })
+  const scope = ctx.configForms.get<NotifyConfig>('dsh-notify')
 
   ctx.slots.inject('settings.section', () => {
     return ctx.slots.register(
@@ -63,13 +77,13 @@ export function apply(ctx: ClientContext): void {
 // ── 设置面板组件 ────────────────────────────────────────────────────────
 
 interface NotifyProps {
-  scope: SettingsScope<EventsConfig>
+  scope: ConfigForm<NotifyConfig>
   close: () => void
 }
 
 const NotifySettingsSection: React.FC<Record<string, unknown>> = function NotifySettingsSection(props) {
   const scope = (props as unknown as NotifyProps).scope
-  const [snap, setSnap] = React.useState<SettingsScopeSnapshot<EventsConfig>>(
+  const [snap, setSnap] = React.useState<ConfigFormSnapshot<NotifyConfig>>(
     () => scope.getSnapshot(),
   )
 
@@ -77,7 +91,7 @@ const NotifySettingsSection: React.FC<Record<string, unknown>> = function Notify
     return scope.subscribe(() => setSnap(scope.getSnapshot()))
   }, [scope])
 
-  const values = (snap.value ?? {}) as EventsConfig
+  const values = snap.value?.events ?? {}
   const writable = snap.writable && snap.status === 'ready'
 
   if (snap.status === 'loading') {
@@ -90,7 +104,8 @@ const NotifySettingsSection: React.FC<Record<string, unknown>> = function Notify
 
   return React.createElement(
     'div',
-    { style: cardStyle },
+    { className: 'dsh_notify_card', style: cardStyle },
+    React.createElement('style', null, switchCss),
     React.createElement('div', { style: sectionTitleStyle }, '通知事件'),
     ...EVENT_FIELDS.map(({ key, label }) => {
       const checked = values[key] === true
@@ -127,7 +142,8 @@ const NotifySettingsSection: React.FC<Record<string, unknown>> = function Notify
         React.createElement(ToggleSwitch, {
           checked,
           disabled: !writable,
-          onChange: () => scope.set(key, !checked),
+          label,
+          onChange: () => scope.set('events', { ...values, [key]: !checked }),
         }),
       )
     }),
@@ -139,49 +155,27 @@ const NotifySettingsSection: React.FC<Record<string, unknown>> = function Notify
 function ToggleSwitch({
   checked,
   disabled,
+  label,
   onChange,
 }: {
   checked: boolean
   disabled: boolean
+  label: string
   onChange: () => void
 }): React.ReactElement {
   return React.createElement(
     'button',
     {
+      type: 'button',
       role: 'switch',
       'aria-checked': checked,
+      'aria-label': label,
       disabled,
       onClick: onChange,
-      style: {
-        border: checked
-          ? '1px solid var(--dsw-alias-brand-primary, #2b7cd9)'
-          : '1px solid var(--dsw-alias-border-l3, #cbd5e1)',
-        background: checked
-          ? 'var(--dsw-alias-brand-primary, #2b7cd9)'
-          : 'var(--dsw-alias-bg-layer-3, #e2e8f0)',
-        cursor: 'pointer',
-        borderRadius: 999,
-        flexShrink: 0,
-        alignItems: 'center',
-        width: 40,
-        height: 22,
-        padding: 2,
-        transition: 'background .12s, border-color .12s',
-        display: 'inline-flex',
-        position: 'relative',
-      },
+      className: 'dsh_notify_toggle',
     },
     React.createElement('span', {
-      style: {
-        background: 'var(--dsw-alias-label-primary-foreground, #fff)',
-        width: 18,
-        height: 18,
-        boxShadow: '0 0 0 1px var(--dsw-alias-border-l4, #0f172a1f)',
-        borderRadius: '50%',
-        transition: 'transform .12s',
-        display: 'block',
-        transform: checked ? 'translate(18px)' : 'translate(0)',
-      },
+      className: 'dsh_notify_thumb',
     }),
   )
 }
@@ -202,7 +196,7 @@ interface ClientContext {
       comp: React.FC<Record<string, unknown>>,
     ): () => void
   }
-  settingsScope: {
-    bind<T>(spec: { namespace: string }): SettingsScope<T>
+  configForms: {
+    get<T>(entryId: string): ConfigForm<T>
   }
 }

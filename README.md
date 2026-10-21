@@ -20,6 +20,8 @@ macOS 桌面通知插件，在 DSH Agent 回合完成或权限申请时通过系
 
 ### 1. 前置依赖
 
+需要 DSH `0.2.0-rc.2` 或更新版本，通知设置使用该版本的 `configForms` 服务。
+
 ```bash
 brew install terminal-notifier
 ```
@@ -116,12 +118,13 @@ dsh-notify:
 
 ### 可视化设置面板
 
-在 DSH Web 的「设置」对话框中也有「通知设置」页面，提供 7 个开关——改动即时生效，无需重启或编辑 YAML。
+在 DSH Web 的「设置」对话框中也有「通知设置」页面，提供 8 个开关——改动即时生效，无需重启或编辑 YAML。开关通过 `events` 的 volatile 配置更新，后续通知事件直接读取最新值。
 
 ![设置面板](docs/settings-zh.png)
 
 ## 故障排查
 
+- **通知设置暂不可用**：确认 profile 的 bundles 包含 `dsh-notify`，且 DSH 版本不低于 `0.2.0-rc.2`。使用本地 `link:` 安装时，修改源码后先执行 `pnpm build`，再重启 DSH 并刷新浏览器，确保 Host 和客户端都加载新产物。
 - **没有通知弹出**：确认 `brew list terminal-notifier` 存在；再跑 `dsh --profile web --dump-config` 确认 `dsh-notify` 出现在 bundle 列表（
 - **点击通知没激活终端**：确认启动 `dsh` 的终端在自动识别列表内（Ghostty、Warp、iTerm2、Terminal.app、VS Code、Cursor（；其他终端用 `activate` 配置项指定 Bundle ID（
 - **通知图标空白**：确认 `assets/dsh.png` 存在于插件目录（
